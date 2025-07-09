@@ -1,0 +1,15 @@
+[Unit]
+Description=IA Sentinel Network Anomaly Detection
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /chemin/vers/auto_main.py
+WorkingDirectory=/chemin/vers/sentinel/src
+StandardOutput=append:/chemin/vers/sentinel/logs/ia-sentinel.log
+StandardError=append:/chemin/vers/sentinel/logs/ia-sentinel.err
+Restart=always
+User=sentinel
+
+[Install]
+WantedBy=multi-user.target
