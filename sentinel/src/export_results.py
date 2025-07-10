@@ -47,15 +47,15 @@ def predict_on_new_logs(input_path, model_path):
     print(f"Après clean_and_format : {len(df)} lignes")
     df = extract_features(df)
     print(f"Après extract_features : {len(df)} lignes")
-    # Charger la liste des features utilisées à l'entraînement
-    features_path = os.path.abspath(os.path.join(os.path.dirname(input_path), 'features.txt'))
+    # Correction : chemin absolu du features.txt et du modèle dans le dossier ../data/ par rapport à ce script
+    data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
+    features_path = os.path.join(data_dir, 'features.txt')
+    model_path_abs = os.path.join(data_dir, 'rf_model.joblib')
     if not os.path.exists(features_path):
         raise FileNotFoundError(f"Le fichier des features est introuvable : {features_path}.\n\nVérifiez que l'entraînement a bien été effectué et que le fichier existe dans le dossier data.\nSi besoin, relancez l'entraînement avec auto_main.py.")
     with open(features_path, 'r') as f:
         feature_names = [line.strip() for line in f.readlines()]
     print(f"Features utilisées pour la prédiction : {feature_names}")
-    # Charger le modèle entraîné
-    model_path_abs = os.path.abspath(os.path.join(os.path.dirname(input_path), os.path.basename(model_path)))
     print(f"Chargement du modèle : {model_path_abs}")
     if not os.path.exists(model_path_abs):
         raise FileNotFoundError(f"Le modèle entraîné est introuvable : {model_path_abs}.\n\nVérifiez que l'entraînement a bien été effectué et que le fichier existe dans le dossier data.\nSi besoin, relancez l'entraînement avec auto_main.py.")
