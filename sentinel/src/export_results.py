@@ -8,6 +8,9 @@ from preprocessing import clean_and_format, extract_features
 import joblib
 import argparse
 
+# Changer le répertoire de travail pour fiabiliser les chemins lors de l'exécution automatisée
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 def export_alerts(df, output_path):
     alerts = df[df['label'] == 1]
     alerts['timestamp'] = datetime.datetime.now().isoformat()
@@ -15,24 +18,43 @@ def export_alerts(df, output_path):
     print(f'Alertes exportées vers {output_path}')
 
 def export_all_logs(df, output_path):
-    df['export_timestamp'] = datetime.datetime.now().isoformat()
-    # Si le fichier existe déjà, on écrit les nouvelles logs en haut sans relire tout le fichier
+    export_timestamp = datetime.datetime.now().isoformat()
+    df['export_timestamp'] = export_timestamp
+    df = df.fillna('')
     if os.path.exists(output_path):
-        # Lire l'en-tête du fichier existant
-        with open(output_path, 'r', encoding='utf-8') as f:
-            header = f.readline()
-            old_content = f.read()
-        # Convertir les nouvelles logs en CSV (sans header)
-        from io import StringIO
-        csv_buffer = StringIO()
-        df.to_csv(csv_buffer, index=False, header=False)
-        new_content = csv_buffer.getvalue()
-        # Réécrire le fichier : header + nouvelles logs + ancien contenu (sans header)
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(header)
-            f.write(new_content)
-            f.write(old_content)
-        print(f'Nouvelles logs ajoutées en haut de {output_path} (sans réécriture complète)')
+        try:
+            old_df = pd.read_csv(output_path)
+        except Exception as e:
+            print(f"Erreur de lecture du fichier existant : {e}. On repart de zéro.")
+            old_df = pd.DataFrame(columns=df.columns)
+        old_df = old_df.fillna('')
+        for col in df.columns:
+            if col not in old_df.columns:
+                old_df[col] = ''
+        for col in old_df.columns:
+            if col not in df.columns:
+                df[col] = ''
+        old_df = old_df[df.columns]
+        df = df[old_df.columns]
+        id_cols = [col for col in df.columns if col != 'export_timestamp']
+        for col in id_cols:
+            df[col] = df[col].astype(str)
+            old_df[col] = old_df[col].astype(str)
+        if not id_cols:
+            print('Aucune colonne commune pour identifier les doublons, export annulé.')
+            return
+        merged = pd.merge(df, old_df, on=id_cols, how='left', indicator=True)
+        # Correction : on récupère les colonnes d'identification + export_timestamp depuis df
+        new_rows = merged[merged['_merge'] == 'left_only'].copy()
+        # On doit réinjecter la colonne export_timestamp depuis df (car elle n'est pas jointe)
+        if 'export_timestamp' not in new_rows.columns:
+            # On récupère la valeur depuis df en utilisant les index
+            new_rows['export_timestamp'] = export_timestamp
+        # Réordonner les colonnes
+        new_rows = new_rows[df.columns]
+        result_df = pd.concat([new_rows, old_df], ignore_index=True)
+        result_df.to_csv(output_path, index=False)
+        print(f'Nouvelles logs ajoutées en haut de {output_path} (sans doublons)')
     else:
         df.to_csv(output_path, index=False)
         print(f'Logs complets exportés vers {output_path} (premier export)')
@@ -81,6 +103,10 @@ def predict_on_new_logs(input_path, model_path):
     if 'src_ip' in df.columns and 'anomalie' in df.columns:
         mask = df['src_ip'].astype(str).isin(['10.74.16.1', '10.74.19.255'])
         df.loc[mask, 'anomalie'] = 0
+    # Forcer toutes les IP source commençant par 10.74 à ne jamais être considérées comme anomalies
+    if 'src_ip' in df.columns and 'anomalie' in df.columns:
+        mask_1074 = df['src_ip'].astype(str).str.startswith('10.74')
+        df.loc[mask_1074, 'anomalie'] = 0
     # Supprimer ces IP des aperçus d'anomalies
     if 'src_ip' in df.columns and 'anomalie' in df.columns:
         df_anomalies = df[(df['anomalie'] == 1) & (~df['src_ip'].astype(str).isin(['10.74.16.1', '10.74.19.255']))]
@@ -102,10 +128,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         df_pred = predict_on_new_logs(args.input, args.model)
-        # Correction : on retire aussi ces IP du DataFrame exporté (pour l'affichage ET l'export CSV)
-        ip_exclues = ['10.74.16.1', '10.74.19.255']
-        if 'src_ip' in df_pred.columns:
-            df_pred = df_pred[~df_pred['src_ip'].astype(str).isin(ip_exclues)]
+        print(f"[DEBUG] Colonnes du DataFrame exporté : {list(df_pred.columns)}")
+        print(f"[DEBUG] Nombre de lignes à exporter : {len(df_pred)}")
         export_all_logs(df_pred, args.output)
         # Exclure les IP non suspectes de l'affichage des anomalies
         if 'src_ip' in df_pred.columns and 'anomalie' in df_pred.columns:

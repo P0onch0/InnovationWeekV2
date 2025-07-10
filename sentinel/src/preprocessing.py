@@ -54,12 +54,12 @@ def clean_and_format(df):
         if port_col not in df.columns:
             df[port_col] = 0
         df[port_col] = pd.to_numeric(df[port_col], errors='coerce').fillna(0).astype(int)
-    # Filtrer les IP de broadcast/multicast
-    if 'src_ip' in df.columns:
-        df = df[~df['src_ip'].apply(is_multicast_or_broadcast)]
-    if 'dst_ip' in df.columns:
-        df = df[~df['dst_ip'].apply(is_multicast_or_broadcast)]
-    print(f"Après filtre broadcast/multicast : {len(df)} lignes")
+    # Désactivation du filtre broadcast/multicast pour voir toutes les IP
+    # if 'src_ip' in df.columns:
+    #     df = df[~df['src_ip'].apply(is_multicast_or_broadcast)]
+    # if 'dst_ip' in df.columns:
+    #     df = df[~df['dst_ip'].apply(is_multicast_or_broadcast)]
+    print(f"Après filtre broadcast/multicast (désactivé) : {len(df)} lignes")
     return df
 
 def load_dataset(normal_path, malicious_path):
