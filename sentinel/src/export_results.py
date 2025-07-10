@@ -131,6 +131,18 @@ if __name__ == "__main__":
         print(f"[DEBUG] Colonnes du DataFrame exporté : {list(df_pred.columns)}")
         print(f"[DEBUG] Nombre de lignes à exporter : {len(df_pred)}")
         export_all_logs(df_pred, args.output)
+        # Export anomalies dans un CSV dédié (timestamp, src_ip, dst_ip, date_log)
+        anomalies_csv = os.path.join(os.path.dirname(args.output), 'anomalies_only.csv')
+        if 'anomalie' in df_pred.columns:
+            anomalies = df_pred[df_pred['anomalie'] == 1].copy()
+            # Extraire la date de la log à partir du timestamp (si possible)
+            if 'timestamp' in anomalies.columns:
+                anomalies['date_log'] = anomalies['timestamp'].astype(str).str[:10]
+            else:
+                anomalies['date_log'] = ''
+            anomalies_export = anomalies[['timestamp', 'src_ip', 'dst_ip', 'date_log']] if not anomalies.empty else pd.DataFrame(columns=['timestamp', 'src_ip', 'dst_ip', 'date_log'])
+            anomalies_export.to_csv(anomalies_csv, index=False)
+            print(f"Export des anomalies vers {anomalies_csv} terminé.")
         # Exclure les IP non suspectes de l'affichage des anomalies
         if 'src_ip' in df_pred.columns and 'anomalie' in df_pred.columns:
             df_anomalies = df_pred[(df_pred['anomalie'] == 1)]
