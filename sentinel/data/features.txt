@@ -1,0 +1,12 @@
+src_port
+dst_port
+src_ip_entropy
+dst_ip_entropy
+src_port_var
+dst_port_var
+is_ip_aleatoire_80
+ip_aleatoire_80
+is_ip_aleatoire_port
+is_ip_source_unique
+is_ip_source_rare_on_port
+is_new_src_ip_on_port_10_74

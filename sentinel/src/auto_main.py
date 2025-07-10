@@ -3,14 +3,25 @@
 
 import time
 import os
+import sys
 from preprocessing import preprocess
 from anomaly_detection import train_model, predict
 
 def main():
-    normal_path = '../data/normal.csv'
-    malicious_path = '../data/malicious.csv'
-    preprocessed_path = '../data/preprocessed.csv'
-    model_path = '../data/rf_model.joblib'
+    # Chemin absolu basé sur le dossier du script
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.abspath(os.path.join(base_dir, '../data'))
+    normal_path = os.path.join(data_dir, 'normal.csv')
+    malicious_path = os.path.join(data_dir, 'malicious.csv')
+    preprocessed_path = os.path.join(data_dir, 'preprocessed.csv')
+    model_path = os.path.join(data_dir, 'rf_model.joblib')
+    # Vérification explicite des fichiers d'entrée
+    if not os.path.exists(normal_path):
+        print(f"Erreur : Le fichier normal.csv est introuvable à l'emplacement : {normal_path}")
+        sys.exit(1)
+    if not os.path.exists(malicious_path):
+        print(f"Erreur : Le fichier malicious.csv est introuvable à l'emplacement : {malicious_path}")
+        sys.exit(1)
     # Prétraitement
     print('Prétraitement...')
     df = preprocess(normal_path, malicious_path)

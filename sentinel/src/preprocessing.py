@@ -10,15 +10,20 @@ def is_multicast_or_broadcast(ip):
     try:
         if pd.isna(ip):
             return True
-        ip_parts = [int(part) for part in str(ip).split('.') if part.isdigit()]
+        ip_str = str(ip)
+        # Ne filtre que les IPv4, ignore les adresses MAC ou IPv6
+        parts = ip_str.split('.')
+        if len(parts) != 4:
+            return False  # On ne filtre pas les adresses non IPv4
+        ip_parts = [int(part) for part in parts if part.isdigit()]
         if len(ip_parts) != 4:
-            return True
-        # Multicast 224.0.0.0/4, 239.0.0.0/8, Broadcast 255.255.255.255
-        if ip_parts[0] >= 224 or ip == '255.255.255.255':
+            return False
+        # Multicast 224.0.0.0/4, Broadcast 255.255.255.255
+        if ip_parts[0] >= 224 or ip_str == '255.255.255.255':
             return True
         return False
     except Exception:
-        return True
+        return False
 
 def clean_and_format(df):
     print(f"Colonnes lues : {list(df.columns)}")
@@ -36,6 +41,7 @@ def clean_and_format(df):
         'Time': 'timestamp'
     })
     print(f"Après renommage colonnes : {len(df)} lignes")
+    print(df.head(10))  # Affichage des 10 premières lignes pour debug
     # Vérifier la présence des colonnes avant dropna
     for col in ['src_ip', 'dst_ip']:
         if col not in df.columns:
@@ -58,13 +64,10 @@ def clean_and_format(df):
 
 def load_dataset(normal_path, malicious_path):
     normal = pd.read_csv(normal_path)
-    # Pour malicious.csv, label = 1 si dst_ip == 10.74.18.53, sinon 0
+    # Pour malicious.csv, label = 1 pour toutes les lignes
     malicious = pd.read_csv(malicious_path)
     malicious = clean_and_format(malicious)
-    if 'dst_ip' in malicious.columns:
-        malicious['label'] = malicious['dst_ip'].apply(lambda x: 1 if str(x) == '10.74.18.53' else 0)
-    else:
-        malicious['label'] = 0
+    malicious['label'] = 1
     normal = clean_and_format(normal)
     normal['label'] = 0
     data = pd.concat([normal, malicious], ignore_index=True)
