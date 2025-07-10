@@ -105,6 +105,100 @@ Pour automatiser l’analyse (ex : toutes les minutes), crée une tâche cron 
 
 ---
 
+## Documentation technique
+
+### Architecture logicielle
+
+- **preprocessing.py**  
+  Fonctions de nettoyage, renommage des colonnes et préparation des données réseau pour l’analyse.
+
+- **export_results.py**  
+  Script principal :  
+  - Lit le fichier CSV de logs réseau  
+  - Applique le modèle IA pour la détection d’anomalies  
+  - Exporte les résultats dans deux fichiers CSV  
+  - Peut être lancé manuellement ou automatiquement (cron, systemd)
+
+- **data/rf_model.joblib**  
+  Modèle IA entraîné (Random Forest supervisé) pour la classification des logs (normal/suspect).
+
+- **data/features.txt**  
+  Liste des variables (features) utilisées par le modèle IA.
+
+### Pipeline de traitement
+
+1. **Lecture du CSV de logs**  
+   Le script lit un fichier CSV contenant les événements réseau.
+
+2. **Prétraitement**  
+   - Renommage des colonnes pour uniformiser les sources (Wireshark, etc.)
+   - Suppression des lignes incomplètes
+   - Extraction et calcul des features nécessaires à l’IA
+
+3. **Détection d’anomalies**  
+   - Application du modèle Random Forest sur les features extraites
+   - Ajout d’une colonne `anomalie` (0 = normal, 1 = suspect)
+   - Forçage à 0 pour les IP internes (10.74.x.x) pour éviter les faux positifs
+
+4. **Export**  
+   - Toutes les lignes dans `final_result.csv`
+   - Les anomalies uniquement dans `anomalies_only.csv` (timestamp, src_ip, dst_ip, date_log)
+
+### Fonctionnalités principales (extraits de code)
+
+- **Prétraitement et nettoyage des logs**
+    ```python
+    df = clean_and_format(df)
+    ```
+
+- **Extraction des features pour l’IA**
+    ```python
+    df_features = extract_features(df)
+    ```
+
+- **Prédiction des anomalies**
+    ```python
+    y_pred = model.predict(X)
+    df['anomalie'] = y_pred
+    ```
+
+- **Export des résultats**
+    ```python
+    export_all_logs(df_pred, args.output)
+    anomalies_export.to_csv(anomalies_csv, index=False)
+    ```
+
+### Formats de fichiers
+
+- **Entrée** :  
+  CSV avec au minimum les colonnes suivantes (noms variables selon la source, renommées automatiquement) :  
+  - `timestamp`, `src_ip`, `dst_ip`, `proto`, `src_port`, `dst_port`
+
+- **Sortie** :  
+  - `final_result.csv` : toutes les lignes, colonnes ci-dessus + `anomalie`
+  - `anomalies_only.csv` : colonnes : `timestamp`, `src_ip`, `dst_ip`, `date_log`
+
+### Configuration
+
+- Les chemins des fichiers d’entrée, sortie et modèle sont configurables via les arguments du script.
+- Le modèle IA et la liste des features doivent être présents dans `sentinel/data/`.
+
+### Logs et erreurs
+
+- Les messages d’erreur et d’information sont affichés dans la console.
+- Pour l’automatisation, il est conseillé de rediriger la sortie vers un fichier log.
+
+### Réentraîner le modèle IA
+
+- Non inclus dans ce dépôt.  
+- Pour réentraîner le modèle, il faut :  
+  - Collecter des logs réseau étiquetés (normaux et malveillants)
+  - Utiliser un script Python avec scikit-learn pour entraîner une nouvelle Random Forest
+  - Sauvegarder le modèle avec joblib dans `data/rf_model.joblib`
+  - Mettre à jour `features.txt` si besoin
+
+---
+
 ## Auteur
 
 Projet IA-Sentinel
